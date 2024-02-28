@@ -107,7 +107,7 @@ jobs:
       - name: Reintegrate Changes
         #if: ${{ github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == 'true' && github.event.pull_request.base.ref == 'main' }}
         run: |
-          version=${{ steps.get_version.outputs.version }}
+          version=$(git describe --tags --abbrev=0 $(git rev-list --tags --max-count=1))
           reintegrate_branch="reintegrate/$version"
 
           git fetch origin main
