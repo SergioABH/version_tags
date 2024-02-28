@@ -80,7 +80,7 @@ jobs:
 
       - name: Get New Version
         id: get_version
-        run: echo "::set-output name=version::$(npm version)"
+        run: echo "::set-output name=version::$(npm show . version)"
 
       - name: Commit and Push Version Update
         run: |
