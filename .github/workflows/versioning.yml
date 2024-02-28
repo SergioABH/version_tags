@@ -1,4 +1,4 @@
-name: Versioning
+name: Versioning2
 
 on:
   pull_request:
@@ -13,9 +13,7 @@ on:
 jobs:
   version:
     runs-on: ubuntu-latest
-
-    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref_type == 'branch' && github.ref != 'refs/heads/main')
-
+    
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -57,13 +55,6 @@ jobs:
                 npm --no-git-tag-version version prerelease
               elif [[ ${{ github.event.action }} == 'closed' && ${{ github.event.pull_request.merged }} == 'true' ]]; then
                 npm version patch
-              fi
-            fi
-          
-          elif [[ $base_branch == 'qa' ]]; then
-            if [[ $branch_name == 'dev' ]]; then
-              if [[ ${{ github.event.action }} == 'closed' && ${{ github.event.pull_request.merged }} == 'true' ]]; then
-                npm version minor
               fi
             fi
           
@@ -113,10 +104,11 @@ jobs:
           git push origin $base_branch --follow-tags || true        
         shell: bash
 
-  hotfix:
+  reintegrate:
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !github.event.is_pull_request
-    
+
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !github.event.is_pull_request && startsWith(github.head_ref, 'hotfix')
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -126,7 +118,7 @@ jobs:
           if [ "${{ github.event_name }}" == "pull_request" ]; then
             IS_MERGED=$(jq --raw-output .pull_request.merged "$GITHUB_EVENT_PATH")
             if [ "$IS_MERGED" != "true" ]; then
-              echo "This is a pull request event but not merged. Skipping the hotfix pipeline."
+              echo "This is a pull request event but not merged. Skipping the reintegrate pipeline."
               exit 0
             fi
           fi
@@ -136,25 +128,29 @@ jobs:
           git config user.email "actions@github.com"
           git config user.name "GitHub Actions"
 
-      - name: Create hotfix branch with a commit
+      - name: Get version from main branch
         run: |
-          git checkout main
-          git pull origin main
-          git checkout -b hotfix-branch
-          echo "Hotfix commit" >> hotfix-file.txt
-          git add .
-          git commit -m "Hotfix commit"
-          git push origin hotfix-branch
+          git fetch origin main
+          version=$(git describe --tags --abbrev=0 origin/main)
 
-      - name: Push hotfix branch
-        run: |
-          git push origin hotfix-branch
+          echo "::set-output name=version::$version"
 
-      - name: Open pull request with curl
+      - name: Create reintegrate branch
         run: |
-          PR_TITLE="Hotfix"
+          version=${{ steps.get_version.outputs.version }}
+          reintegrate_branch="reintegrate/$version"
+
+          git checkout -b $reintegrate_branch
+          git push origin $reintegrate_branch
+
+      - name: Open pull request to dev
+        run: |
+          version=${{ steps.get_version.outputs.version }}
+          reintegrate_branch="reintegrate/$version"
+
+          PR_TITLE="Reintegrate $version to dev"
 
           curl -X POST \
             -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" \
-            -d '{"title":"'"$PR_TITLE"'","head":"hotfix-branch","base":"main"}' \
+            -d '{"title":"'"$PR_TITLE"'","head":"'"$reintegrate_branch"'","base":"dev"}' \
             "https://api.github.com/repos/${{ github.repository }}/pulls"
