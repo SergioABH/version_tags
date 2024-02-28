@@ -37,45 +37,45 @@ jobs:
           if [[ $base_branch == 'dev' ]]; then
             if [[ $branch_name == *feat/* ]]; then
               if [[ ${{ github.event.action }} == 'opened' ]]; then
-                npm --no-git-tag-version version preminor
+                npm version preminor
               elif [[ ${{ github.event.action }} == 'synchronize' ]]; then
-                npm --no-git-tag-version version prerelease
+                npm version prerelease
               elif [[ ${{ github.event.action }} == 'closed' && ${{ github.event.pull_request.merged }} == 'true' ]]; then
-                npm --no-git-tag-version version minor
+                npm version minor
               fi
             elif [[ $branch_name == *fix/* ]]; then
               if [[ ${{ github.event.action }} == 'opened' ]]; then
-                npm --no-git-tag-version version prepatch
+                npm version prepatch
               elif [[ ${{ github.event.action }} == 'synchronize' ]]; then
-                npm --no-git-tag-version version prerelease
+                npm version prerelease
               elif [[ ${{ github.event.action }} == 'closed' && ${{ github.event.pull_request.merged }} == 'true' ]]; then
-                npm --no-git-tag-version version patch
+                npm version patch
               fi
             fi
           
           elif [[ $base_branch == 'qa' ]]; then
             if [[ $branch_name == 'dev' ]]; then
               if [[ ${{ github.event.action }} == 'closed' && ${{ github.event.pull_request.merged }} == 'true' ]]; then
-                npm --no-git-tag-version version minor
+                npm version minor
               fi
             fi
           
           elif [[ $base_branch == 'main' ]]; then
             if [[ $branch_name == *hotfix/* ]]; then
               if [[ ${{ github.event.action }} == 'opened' ]]; then
-                npm --no-git-tag-version version prepatch
+                npm version prepatch
               elif [[ ${{ github.event.action }} == 'synchronize' ]]; then
-                npm --no-git-tag-version version prerelease
+                npm version prerelease
               elif [[ ${{ github.event.action }} == 'closed' && ${{ github.event.pull_request.merged }} == 'true' ]]; then
-                npm --no-git-tag-version version patch
+                npm version patch
               fi
             elif [[ $branch_name == *release/* ]]; then
               if [[ ${{ github.event.action }} == 'opened' ]]; then
-                npm --no-git-tag-version version prerelease --preid=rc
+                npm version prerelease --preid=rc
               elif [[ ${{ github.event.action }} == 'synchronize' ]]; then
-                npm --no-git-tag-version version prerelease --preid=rc
+                npm version prerelease --preid=rc
               elif [[ ${{ github.event.action }} == 'closed' && ${{ github.event.pull_request.merged }} == 'true' ]]; then
-                npm --no-git-tag-version version major
+                npm version major
               fi
             fi
           fi
@@ -85,7 +85,7 @@ jobs:
 
       - name: Get New Version
         id: get_version
-        run: echo "::set-output name=version::$(npm --no-git-tag-version version)"
+        run: echo "::set-output name=version::$(npm version)"
 
       - name: Commit and Push Version Update
         run: |
