@@ -11,47 +11,6 @@ on:
       - main
 
 jobs:
-  reintegrate:
-    runs-on: ubuntu-latest
-
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.event.before != '0000000000000000000000000000000000000000' && startsWith(github.head_ref, 'hotfix')
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Configure Git user
-        run: |
-          git config user.email "actions@github.com"
-          git config user.name "GitHub Actions"
-
-      - name: Get version from main branch
-        run: |
-          git fetch origin main
-          version=$(git describe --tags --abbrev=0 origin/main)
-
-          echo "::set-output name=version::$version"
-
-      - name: Create reintegrate branch
-        run: |
-          version=${{ steps.get_version.outputs.version }}
-          reintegrate_branch="reintegrate/$version"
-
-          git checkout -b $reintegrate_branch
-          git push origin $reintegrate_branch
-
-      - name: Open pull request to dev
-        run: |
-          version=${{ steps.get_version.outputs.version }}
-          reintegrate_branch="reintegrate/$version"
-
-          PR_TITLE="Reintegrate $version to dev"
-
-          curl -X POST \
-            -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" \
-            -d '{"title":"'"$PR_TITLE"'","head":"'"$reintegrate_branch"'","base":"dev"}' \
-            "https://api.github.com/repos/${{ github.repository }}/pulls"
-
   version:
     runs-on: ubuntu-latest
     
@@ -144,3 +103,51 @@ jobs:
           git checkout $base_branch
           git push origin $base_branch --follow-tags || true        
         shell: bash
+
+  reintegrate:
+    runs-on: ubuntu-latest
+
+    if: |
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      startsWith(github.head_ref, 'hotfix') &&
+      needs.version.outputs.version
+
+    needs:
+      - version
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Configure Git user
+        run: |
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+
+      - name: Get version from main branch
+        run: |
+          git fetch origin main
+          version=$(git describe --tags --abbrev=0 origin/main)
+
+          echo "::set-output name=version::$version"
+
+      - name: Create reintegrate branch
+        run: |
+          version=${{ steps.get_version.outputs.version }}
+          reintegrate_branch="reintegrate/$version"
+
+          git checkout -b $reintegrate_branch
+          git push origin $reintegrate_branch
+
+      - name: Open pull request to dev
+        run: |
+          version=${{ steps.get_version.outputs.version }}
+          reintegrate_branch="reintegrate/$version"
+
+          PR_TITLE="Reintegrate $version to dev"
+
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" \
+            -d '{"title":"'"$PR_TITLE"'","head":"'"$reintegrate_branch"'","base":"dev"}' \
+            "https://api.github.com/repos/${{ github.repository }}/pulls"
