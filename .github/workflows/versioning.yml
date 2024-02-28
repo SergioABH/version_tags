@@ -1,4 +1,4 @@
-name: Versioning2
+name: Versioning
 
 on:
   pull_request:
@@ -6,14 +6,21 @@ on:
       - opened
       - synchronize
       - closed
+  push:
+    branches:
+      - main
 
 jobs:
   version:
     runs-on: ubuntu-latest
 
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref_type == 'branch' && github.ref != 'refs/heads/main')
+
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set Node.js
         uses: actions/setup-node@v4
@@ -61,7 +68,7 @@ jobs:
             fi
           
           elif [[ $base_branch == 'main' ]]; then
-            if [[ $branch_name == *hotfix/* ]]; then
+            if [[ $branch_name == 'hotfix-branch' ]]; then
               if [[ ${{ github.event.action }} == 'opened' ]]; then
                 npm --no-git-tag-version version prepatch
               elif [[ ${{ github.event.action }} == 'synchronize' ]]; then
@@ -105,3 +112,51 @@ jobs:
           git checkout $base_branch
           git push origin $base_branch --follow-tags || true        
         shell: bash
+
+  hotfix:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Check if it's a pull request
+        run: |
+          if [ -n "$GITHUB_EVENT_PATH" ]; then
+            EVENT_TYPE=$(jq --raw-output .event_name "$GITHUB_EVENT_PATH")
+            IS_PULL_REQUEST=$(jq --raw-output .pull_request.url "$GITHUB_EVENT_PATH")
+
+            if [ "$EVENT_TYPE" == "pull_request" ] && [ "$IS_PULL_REQUEST" != "null" ]; then
+              echo "This is a pull request event. Skipping the hotfix pipeline."
+              exit 0
+            fi
+          fi
+
+      - name: Configure Git user
+        run: |
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+
+      - name: Create hotfix branch with a commit
+        run: |
+          git checkout main
+          git pull origin main
+          git checkout -b hotfix-branch
+          echo "Hotfix commit" >> hotfix-file.txt
+          git add .
+          git commit -m "Hotfix commit"
+          git push origin hotfix-branch
+
+      - name: Push hotfix branch
+        run: |
+          git push origin hotfix-branch
+
+      - name: Open pull request with curl
+        run: |
+          PR_TITLE="Hotfix"
+
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" \
+            -d '{"title":"'"$PR_TITLE"'","head":"hotfix-branch","base":"main"}' \
+            "https://api.github.com/repos/${{ github.repository }}/pulls"
