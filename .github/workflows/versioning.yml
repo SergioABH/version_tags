@@ -68,7 +68,7 @@ jobs:
             fi
           
           elif [[ $base_branch == 'main' ]]; then
-            if [[ $branch_name == 'hotfix-branch' ]]; then
+            if [[ $branch_name == *hotfix* ]]; then
               if [[ ${{ github.event.action }} == 'opened' ]]; then
                 npm --no-git-tag-version version prepatch
               elif [[ ${{ github.event.action }} == 'synchronize' ]]; then
@@ -115,8 +115,8 @@ jobs:
 
   hotfix:
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.event.head_commit != null
-
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !github.event.is_pull_request
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
