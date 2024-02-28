@@ -59,35 +59,21 @@ jobs:
             fi
           
           elif [[ $base_branch == 'main' ]]; then
-            if [[ $branch_name == *release/* ]]; then
-              if [[ ${{ github.event.action }} == 'opened' ]]; then
-                npm --no-git-tag-version version prerelease --preid=rc
-              elif [[ ${{ github.event.action }} == 'synchronize' ]]; then
-                npm --no-git-tag-version version prerelease --preid=rc
-              elif [[ ${{ github.event.action }} == 'closed' && ${{ github.event.pull_request.merged }} == 'true' ]]; then
-                npm version major
-              fi
-            elif [[ $branch_name == *hotfix* ]]; then
+            if [[ $branch_name == *hotfix* ]]; then
               if [[ ${{ github.event.action }} == 'opened' ]]; then
                 npm --no-git-tag-version version prepatch
               elif [[ ${{ github.event.action }} == 'synchronize' ]]; then
                 npm --no-git-tag-version version prerelease
               elif [[ ${{ github.event.action }} == 'closed' && ${{ github.event.pull_request.merged }} == 'true' ]]; then
                 npm version patch
-
-              version=$(npm version)
-                reintegrate_branch="reintegrate/$version"
-
-                git fetch origin main
-                git checkout -b $reintegrate_branch origin/main
-                git push origin $reintegrate_branch
-
-                # Crear la pull request automáticamente
-                PR_TITLE="Reintegrate $version to dev"
-                curl -X POST \
-                  -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" \
-                  -d '{"title":"'"$PR_TITLE"'","head":"'"$reintegrate_branch"'","base":"dev"}' \
-                  "https://api.github.com/repos/${{ github.repository }}/pulls"
+              fi
+            elif [[ $branch_name == *release/* ]]; then
+              if [[ ${{ github.event.action }} == 'opened' ]]; then
+                npm --no-git-tag-version version prerelease --preid=rc
+              elif [[ ${{ github.event.action }} == 'synchronize' ]]; then
+                npm --no-git-tag-version version prerelease --preid=rc
+              elif [[ ${{ github.event.action }} == 'closed' && ${{ github.event.pull_request.merged }} == 'true' ]]; then
+                npm version major
               fi
             fi
           fi
@@ -117,3 +103,44 @@ jobs:
           git checkout $base_branch
           git push origin $base_branch --follow-tags || true        
         shell: bash
+
+  reintegrate:
+    runs-on: ubuntu-latest
+
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }} || ${{ github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == 'true' && github.event.pull_request.head.ref =~ /^hotfix\/.*/ }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Configure Git user
+        run: |
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+
+      - name: Get version from main branch
+        run: |
+          git fetch origin main
+          version=$(git describe --tags --abbrev=0 origin/main)
+
+          echo "::set-output name=version::$version"
+
+      - name: Create reintegrate branch
+        run: |
+          version=${{ steps.get_version.outputs.version }}
+          reintegrate_branch="reintegrate/$version"
+
+          git checkout -b $reintegrate_branch
+          git push origin $reintegrate_branch
+
+      - name: Open pull request to dev
+        run: |
+          version=${{ steps.get_version.outputs.version }}
+          reintegrate_branch="reintegrate/$version"
+
+          PR_TITLE="Reintegrate $version to dev"
+
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" \
+            -d '{"title":"'"$PR_TITLE"'","head":"'"$reintegrate_branch"'","base":"dev"}' \
+            "https://api.github.com/repos/${{ github.repository }}/pulls"
