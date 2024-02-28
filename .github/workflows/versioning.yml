@@ -6,9 +6,6 @@ on:
       - opened
       - synchronize
       - closed
-  push:
-    branches:
-      - main
 
 jobs:
   version:
@@ -104,53 +101,20 @@ jobs:
           git push origin $base_branch --follow-tags || true        
         shell: bash
 
-  reintegrate:
-    runs-on: ubuntu-latest
-
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !github.event.is_pull_request && startsWith(github.head_ref, 'hotfix')
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Check if it's a pull request and merged
+      - name: Reintegrate Changes
         run: |
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            IS_MERGED=$(jq --raw-output .pull_request.merged "$GITHUB_EVENT_PATH")
-            if [ "$IS_MERGED" != "true" ]; then
-              echo "This is a pull request event but not merged. Skipping the reintegrate pipeline."
-              exit 0
-            fi
+          if [[ ${{ github.event.action }} == 'closed' && ${{ github.event.pull_request.merged }} == 'true' && ${{ github.event.pull_request.base.ref }} == 'main' ]]; then
+            version=$(git describe --tags --abbrev=0 $(git rev-list --tags --max-count=1 main))
+            reintegrate_branch="reintegrate/$version"
+
+            git fetch origin main
+            git checkout -b $reintegrate_branch main
+            git push origin $reintegrate_branch
+
+            PR_TITLE="Reintegrate $version to dev"
+
+            curl -X POST \
+              -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" \
+              -d '{"title":"'"$PR_TITLE"'","head":"'"$reintegrate_branch"'","base":"dev"}' \
+              "https://api.github.com/repos/${{ github.repository }}/pulls"
           fi
-
-      - name: Configure Git user
-        run: |
-          git config user.email "actions@github.com"
-          git config user.name "GitHub Actions"
-
-      - name: Get version from main branch
-        run: |
-          git fetch origin main
-          version=$(git describe --tags --abbrev=0 origin/main)
-
-          echo "::set-output name=version::$version"
-
-      - name: Create reintegrate branch
-        run: |
-          version=${{ steps.get_version.outputs.version }}
-          reintegrate_branch="reintegrate/$version"
-
-          git checkout -b $reintegrate_branch
-          git push origin $reintegrate_branch
-
-      - name: Open pull request to dev
-        run: |
-          version=${{ steps.get_version.outputs.version }}
-          reintegrate_branch="reintegrate/$version"
-
-          PR_TITLE="Reintegrate $version to dev"
-
-          curl -X POST \
-            -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" \
-            -d '{"title":"'"$PR_TITLE"'","head":"'"$reintegrate_branch"'","base":"dev"}' \
-            "https://api.github.com/repos/${{ github.repository }}/pulls"
