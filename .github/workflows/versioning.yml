@@ -115,7 +115,7 @@ jobs:
 
   hotfix:
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.event.head_commit != null
 
     steps:
       - name: Checkout repository
