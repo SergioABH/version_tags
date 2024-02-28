@@ -1,6 +1,6 @@
 {
   "name": "version_tags",
-  "version": "0.8.7",
+  "version": "0.8.8-0",
   "description": "",
   "main": "index.js",
   "scripts": {
