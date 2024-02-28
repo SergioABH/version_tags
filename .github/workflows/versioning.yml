@@ -107,21 +107,11 @@ jobs:
   reintegrate:
     runs-on: ubuntu-latest
 
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !github.event.is_pull_request && startsWith(github.head_ref, 'hotfix')
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.event.before != '0000000000000000000000000000000000000000' && startsWith(github.head_ref, 'hotfix')
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
-
-      - name: Check if it's a pull request and merged
-        run: |
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            IS_MERGED=$(jq --raw-output .pull_request.merged "$GITHUB_EVENT_PATH")
-            if [ "$IS_MERGED" != "true" ]; then
-              echo "This is a pull request event but not merged. Skipping the reintegrate pipeline."
-              exit 0
-            fi
-          fi
 
       - name: Configure Git user
         run: |
