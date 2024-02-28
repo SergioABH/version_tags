@@ -101,39 +101,15 @@ jobs:
           git push origin $base_branch --follow-tags || true        
         shell: bash
 
-  reintegrate:
-    runs-on: ubuntu-latest
-    needs: version
-    if: ${{ github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == 'true' }}
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Configure Git user
+      - name: Reintegrate Changes
+        if: ${{ github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == 'true' }}
         run: |
-          git config user.email "actions@github.com"
-          git config user.name "GitHub Actions"
+          version=${{ steps.get_version.outputs.version }}
+          reintegrate_branch="reintegrate/$version"
 
-      - name: Get version from main branch
-        run: |
           git fetch origin main
-          version=$(git describe --tags --abbrev=0 origin/main)
-
-          echo "::set-output name=version::$version"
-
-      - name: Create reintegrate branch
-        run: |
-          version=${{ steps.get_version.outputs.version }}
-          reintegrate_branch="reintegrate/$version"
-
-          git checkout -b $reintegrate_branch
+          git checkout -b $reintegrate_branch main
           git push origin $reintegrate_branch
-
-      - name: Open pull request to dev
-        run: |
-          version=${{ steps.get_version.outputs.version }}
-          reintegrate_branch="reintegrate/$version"
 
           PR_TITLE="Reintegrate $version to dev"
 
