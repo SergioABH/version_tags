@@ -121,14 +121,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Check if it's a pull request
+      - name: Check if it's a pull request and merged
         run: |
-          if [ -n "$GITHUB_EVENT_PATH" ]; then
-            EVENT_TYPE=$(jq --raw-output .event_name "$GITHUB_EVENT_PATH")
-            IS_PULL_REQUEST=$(jq --raw-output .pull_request.url "$GITHUB_EVENT_PATH")
-
-            if [ "$EVENT_TYPE" == "pull_request" ] && [ "$IS_PULL_REQUEST" != "null" ]; then
-              echo "This is a pull request event. Skipping the hotfix pipeline."
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            IS_MERGED=$(jq --raw-output .pull_request.merged "$GITHUB_EVENT_PATH")
+            if [ "$IS_MERGED" != "true" ]; then
+              echo "This is a pull request event but not merged. Skipping the hotfix pipeline."
               exit 0
             fi
           fi
