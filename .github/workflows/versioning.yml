@@ -107,7 +107,7 @@ jobs:
   reintegrate:
     runs-on: ubuntu-latest
 
-    if: ${{ github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == 'true' && matches(github.event.pull_request.head.ref, '^hotfix\/.+$') }}
+    if: ${{ github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == 'true' }}
 
     steps:
       - name: Checkout repository
